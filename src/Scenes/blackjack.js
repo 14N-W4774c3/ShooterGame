@@ -1,59 +1,41 @@
 class Blackjack extends Phaser.Scene {
-
-    // Config for enemy movement
-    config = {
-        from: 0, 
-        to: 1, 
-        delay: 0, 
-        duration: 2000, 
-        ease: 'Sine.easeInOut', 
-        repeat: 0, 
-        yoyo: false, 
-        rotateToPath: true, 
-        rotationOffset: -90
-    };
-
-    constructor () {
-        super ("Blackjack");
+    constructor(){
+        super("blackjack2");
 
         // Sprite Holder
         this.my = {sprite: {}};
 
-        //Spawn Point
-        this.playerX = 300;
-        this.playerY = 450;
-
+        // Physics Constants
         this.moveSpeed = 10;
         this.shotSpeed = 5;
-        this.deck = [];
-        this.deckMovement = "right";
-        this.activeCards = 0;
-        this.activeCardsSet = [];
-
-        // Movement polling input
-        this.aKey = null;
-        this.dKey = null;
-
-        // Projectile input
-        this.spaceKey = null;
-        this.cooldown = 0;
-        this.bulletCooldown = 0;
-
-        // Projectile holder
-        this.my.sprite.bullet = [];
-        this.my.sprite.enemyBullet = [];
         this.maxBullets = 3;
         this.maxEnemyBullets = 25;
+        this.maxActive = 4;
 
-        // Play Hand input
+        // Inputs
+        this.aKey = null;
+        this.dKey = null;
+        this.spaceKey = null;
         this.wKey = null;
-
-        // Score Variables
-        this.score = 200;
-        //this.scoreMult = 1;
+    
+        // Movement Config
+        this.config = {
+            from: 0, 
+            to: 1, 
+            delay: 0, 
+            duration: 2000, 
+            ease: 'Sine.easeInOut', 
+            repeat: 0, 
+            yoyo: false, 
+            rotateToPath: true, 
+            rotationOffset: -90
+        };
     }
-    preload () {
+    preload(){
         this.load.setPath("./assets/");
+
+        // Graphics
+        // Cards
         this.load.image("SpadesA", "cardSpadesA.png");
         this.load.image("Spades2", "cardSpades2.png");
         this.load.image("Spades3", "cardSpades3.png");
@@ -107,9 +89,18 @@ class Blackjack extends Phaser.Scene {
         this.load.image("DiamondsQ", "cardDiamondsQ.png");
         this.load.image("DiamondsK", "cardDiamondsK.png");
         
+        // Player
         this.load.image("player", "player.png");
+        this.load.image("life", "chipRedWhite.png");
+
+        // Projectiles
         this.load.image("enemyShot", "pieceBlue_single09.png");
         this.load.image("projectile", "pieceYellow_single10.png");
+
+        // Buttons
+        this.load.image("buttonGraphic", "yellow.png");
+
+        // Audio
         // Enemy firing sound
         this.load.audio("chipShot", "chipLay1.ogg");
         // Player firing sound
@@ -120,14 +111,25 @@ class Blackjack extends Phaser.Scene {
         this.load.audio("hitChip", "cardPlace3.ogg");
         // Card - Player collision sound
         this.load.audio("hitPlayer", "cardPlace1.ogg");
-        // Shuffle sound
-        //this.load.audio("shuffleDeck", "cardFan2.ogg");
     }
     create () {
         let my = this.my;
 
-        // Sprite Creation
-        //my.sprite.player = this.add.sprite(this.playerX, this.playerY, "player");
+        // Create Text
+        this.gameOverText = this.add.text(200, 200, "Game Over", {align: 'center'});
+        this.continueText = this.add.text(200, 250, "Do You Want To Continue?", {align: 'center'});
+        this.yesText = this.add.text(200, 400, "Yes", {align: 'center'});
+        this.noText = this.add.text(400, 400, "No", {align: 'center'});
+        this.restartText = this.add.text(400, 400, "Restart", {align: 'center'});
+        this.yourScoreText = this.add.text(400, 300, "Your score: "+this.score, {align: 'center'});
+        this.scoreTrackerText = this.add.text(400, 525, "Score: "+this.score);
+        this.multTrackerText = this.add.text(400, 575, "Mult: x"+this.scoreMult);
+
+        // Create Containers
+        my.sprite.bullet = [];
+        my.sprite.enemyBullet = [];
+        // Spawn bullets
+        my.sprite.projectile = null;
         for (let i = 0; i < this.maxBullets; i++){
             my.sprite.projectile = this.add.sprite(-100, -100, "projectile");
             my.sprite.projectile.setScale(0.40);
@@ -135,226 +137,324 @@ class Blackjack extends Phaser.Scene {
             my.sprite.bullet[i].visible = false;
         }
         for (let i = 0; i < this.maxEnemyBullets; i++){
-            my.sprite.enemyBullet.push(this.add.sprite(-100, -100, "enemyShot"));
+            my.sprite.projectile = this.add.sprite(-100, -100, "enemyShot");
+            my.sprite.projectile.setScale(0.40);
+            my.sprite.enemyBullet.push(my.sprite.projectile);
             my.sprite.enemyBullet[i].visible = false;
         }
-
-        // Enemy creation
-        //my.sprite.enemy = this.add.sprite(this.playerX, this.playerY - 300, "SpadesA");
-        //my.sprite.enemy = new Card(this, this.playerX, this.playerY-300, "cards", 11, "cardSpadesA.png", config);
-        //this.deck = this.createDeck();
-        //my.sprite.enemy.setScale(0.25);
-
-        this.high = this.add.group({key: 'SpadesA', frame: 0, repeat: 12, setXY: {x: 160, y: 100, stepX: 40}});
-        this.high.scaleXY(-0.75, -0.75);
-        this.mid = this.add.group({key: 'Hearts7', frame: 0, repeat: 12, setXY: {x: 160, y: 150, stepX: 40}});
-        this.mid.scaleXY(-0.75, -0.75);
-        this.low = this.add.group({key: 'Clubs3', frame: 0, repeat: 12, setXY: {x: 160, y: 200, stepX: 40}});
-        this.low.scaleXY(-0.75, -0.75);
-        this.testGroup = this.add.group({classType: 'Card'});
-        this.testGroup.createMultiple(13);
-
 
         // Movement Key Objects
         this.aKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
         this.dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
+        this.init_game("Start");
+
         // Projectile
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-
-        /*
+        
         // Play Hand
         this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-        */
 
-        my.sprite.player = new Player(this, game.config.width/2, game.config.height - 75, "player", null, this.aKey, this.dKey, this.moveSpeed);
-        my.sprite.player.setScale(2.00);
+        // Create Buttons
+        this.buttonYes = this.add.nineslice(-100, -100, "buttonGraphic");
+        this.buttonNo = this.add.nineslice(-100, -100, "buttonGraphic");
+        this.buttonRestart = this.add.nineslice(-100, -100, "buttonGraphic");
     }
-    update () {
+    update() {
         let my = this.my;
-        this.bulletCooldown--;
 
-        // Collision checks
-        // check if card collides with player
-        for (let card of this.activeCardsSet){
-            if (this.collides(card, my.sprite.player)){
-                card.colliding = true;
-                player.addCard(card);
+        if (this.pause == false){
+            this.bulletCooldown--;
+            this.cooldown++;
+
+            // Check Conditions
+            // Player Busts
+            if (my.sprite.player.checkHand() > 21){
+                my.sprite.player.lives--;
+                let lostLife = my.sprite.lifeCounter.getLast();
+                my.sprite.lifeCounter.remove(lostLife);
+                lostLife.visible = false;
+                my.sprite.player.resetHand();
+                this.scoreMult = 1;
+                this.multTrackerText.setText("Mult: x"+this.scoreMult);
             }
-        }
-
-        // check if enemy shots collide with player
-        for (let shot of my.sprite.enemyBullet){
-            if (this.collides(shot, my.sprite.player)){
-                shot.visible = false;
-                my.sprite.player.lives --;  // TEMP LINE
-                // MODIFY SCORE VARIABLES
-                // this.scoreMult++;
+            // Player runs out of chips
+            if (this.score < 0){
+                my.sprite.player.lives--;
+                let lostLife = my.sprite.lifeCounter.getLast();
+                my.sprite.lifeCounter.remove(lostLife);
+                lostLife.visible = false;
+                this.score = 200;
+                this.scoreTrackerText.setText("Score: "+this.score);
             }
-        }
+            // Player runs out of lives
+            if (my.sprite.player.lives == 0){
+                my.sprite.player.lives = -1;
+                this.pause = true;
+                this.gameOver();
+            }
+            // Deck runs out of winning hands
+            if (my.sprite.player.checkHand() + this.deckSum() < 16){
+                this.pause = true;
+                //End wave
+                this.continueText.visible = true;
+                this.buttonYes.setPosition(200, 400);
+                this.buttonNo.setPosition(400, 400);
+                this.yesText.visible = true;
+                this.noText.visible = true;
+                this.buttonYes.setInteractive();
+                this.buttonNo.setinteractive();
+            }
 
-        // check if player shot collides with card
-        //for (shot in my.sprite.bullet){
-            //
-        //}
-
-        /*  REENABLE ONCE GAME IS COMPLETED
-        // End condition check 
-        //check if player busted
-        if (my.sprite.player.checkHand() > 21){
-            my.sprite.player.lives --;
-            my.sprite.player.resetHand();
-        }
-        //check if player score < 0
-        if (this.score < 0){
-            my.sprite.player.lives --;
-            this.score = 200;
-        }
-        //check if player is out of lives
-        if (my.sprite.player.lives == 0){
-            this.gameOver();
-        }
-        //check if deck is out of cards
-        if (this.deckSum(this.deck) < 16){
-            this.endLevel();
-        }
-        */
-
-        // Group movement
-
-
-        // Projectile Firing
-        if (this.spaceKey.isDown){
-            if (this.bulletCooldown < 0){
-                for (let bullet of my.sprite.bullet) {
-                    if (!bullet.visible){
-                        bullet.x = my.sprite.player.x;
-                        bullet.y = my.sprite.player.y;
-                        this.sound.play("chipFire");
-                        bullet.visible = true;
-                        this.bulletCooldown = 5;
-                        break;
+            // Check collisions
+            // Card - Player Collision
+            for (let card of this.activeCards.getChildren()){
+                if (this.collides(card, my.sprite.player)){
+                    my.sprite.player.addCard(card);
+                    this.activeCards.remove(card);
+                    this.deck.remove(card);
+                    card.x = 450 + (50*my.sprite.player.handSize);
+                    card.y = 550;
+                    card.colliding = true;
+                    card.update();
+                }
+            }
+            // Enemy Shot - Player Collision
+            for (let shot of my.sprite.enemyBullet){
+                if (this.collides(shot, my.sprite.player)){
+                    shot.visible = false;
+                    shot.x = -100;
+                    shot.y = -100;
+                    console.log("Score mult is "+this.scoreMult);
+                    this.scoreMult++;
+                    console.log("Score mult is now "+this.scoreMult);
+                    this.multTrackerText.setText("Mult: x"+this.scoreMult);
+                    console.log("The message SHOULD say "+this.multTrackerText.text);
+                }
+            }
+            // Player Shot - Card Collision
+            // It's 156 checks at max to start - not great, but oh well.
+            for (let card of this.deck.getChildren()){
+                for (let shot of my.sprite.bullet){
+                    if (this.collides(card, shot)){
+                        my.sprite.player.addCard(card);
+                        if (this.activeCards.contains(card)){
+                            this.activeCards.remove(card);
+                        }
+                        this.deck.remove(card);
+                        card.x = 450 + (50*my.sprite.player.handSize);
+                        card.y = 550;
+                        card.colliding = true;
                     }
                 }
             }
-        }
 
-        // Enemy shots
-        this.cooldown += 1;
-        if (this.cooldown % 7){
-            if (this.activeCards < this.maxActive){
-                for (let card of this.deck){
-                    if (!card.active){
-                        if (Math.floor(Math.random()*13) > 10){
-                            card.makeActive();
-                            this.activeCards++;
-                            this.activeCardsSet.push(card);
-                            if (this.activeCards == this.maxActive){
-                                break;
-                            }
+            // Projectile Firing
+            if (this.spaceKey.isDown){
+                if (this.bulletCooldown < 0){
+                    for (let bullet of my.sprite.bullet) {
+                        if (!bullet.visible){
+                            bullet.x = my.sprite.player.x;
+                            bullet.y = my.sprite.player.y;
+                            this.sound.play("chipFire");
+                            bullet.visible = true;
+                            this.bulletCooldown = 5;
+                            break;
                         }
                     }
                 }
             }
-        }
-        if (this.cooldown % 5){
-            if (this.activeBullets < this.maxEnemyBullets){
-                for (let card of this.deck){
-                    if (!card.active){
-                        if (Math.floor(Math.random()*3) == 3){
-                            for (let bullet of my.sprite.enemyBullet) {
-                                if (!bullet.visible){
-                                    bullet.x = card.x;
-                                    bullet.y = card.y;
-                                    this.sound.play("chipShot");
-                                    bullet.visible = true;
+
+            // Card Action
+            if (this.cooldown%10 == 0 && this.cooldown > 30){
+                if (this.activeBullets < this.maxEnemyBullets){
+                    for (let card of this.deck.getChildren()){
+                        if (!this.activeCards.contains(card)){
+                            if (Math.floor(Math.random()*3) == 2){
+                                for (let bullet of my.sprite.enemyBullet) {
+                                    if (!bullet.visible){
+                                        bullet.x = card.x;
+                                        bullet.y = card.y;
+                                        this.sound.play("chipShot");
+                                        bullet.visible = true;
+                                        break;
+                                    }
+                                }
+                                this.activeBullets++;
+                                if (this.activeBullets == this.maxEnemyBullets){
                                     break;
                                 }
                             }
-                            this.activeBullets++;
-                            if (this.activeBullets == this.maxEnemyBullets){
-                                break;
+                        }
+                    }
+                }
+            }
+            if (this.cooldown%14 == 0 && this.cooldown > 50){
+                if (this.activeCards.getLength() < this.maxActive){
+                    for (let card of this.deck.getChildren()){
+                        if (!this.activeCards.contains(card)){
+                            if (Math.floor(Math.random()*13) > 10){
+                                this.makeActive(card);
+                                this.activeCards.add(card);
+                                if (this.activeCards.getLength() == this.maxActive){
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        // Projectile Motion
-        for (let bullet of my.sprite.bullet){
-            bullet.y -= this.shotSpeed;
-            if (bullet.y < -(bullet.displayHeight/2)){
-                bullet.visible = false;
+            // Returning cards
+            for (let card of this.activeCards.getChildren()){
+                if(card.returning){
+                    if(card.y <= card.tempY-10){
+                        card.y += 10;
+                    }
+                    else if (card.y < card.tempY){
+                        card.y = card.tempY;
+                    }
+                    else{
+                        card.returning = false;
+                        this.activeCards.remove(card);
+                    }
+                }
             }
-        }
-        for (let bullet of my.sprite.enemyBullet){
-            bullet.y += this.shotSpeed;
-            if (bullet.y > (bullet.displayHeight/2)+600){
-                bullet.visible = false;
+            //Play Hand
+            if (Phaser.Input.Keyboard.JustDown(this.wKey)){
+                let handValue = my.sprite.player.checkHand();
+                if (handValue < 16){
+                    //lose score = (16 - handValue)*100*hits
+                    this.score -= (16 - this.handValue) * 100 * this.scoreMult;
+                }
+                else if (this.handValue <= 21){
+                    //gain score = handValue*100*hits
+                    this.score += this.handValue * 100 * this.scoreMult;
+                }
+                this.scoreMult = 1;
+                my.sprite.player.resetHand();
+                this.scoreTrackerText.setText("Score: "+this.score);
+                this.multTrackerText.setText("Mult: x"+this.scoreMult);
+                return;
             }
-        }
 
-        /*  REENABLE ONCE GAME IS COMPLETE
-        // Playing Hands
-        if (Phaser.Input.Keyboard.JustDown(this.wKey)){
-            this.handValue = my.sprite.player.checkHand();
-            if (handValue < 16){
-                //lose score = (16 - handValue)*100*hits
-                this.score += (16 - this.handValue) * 100 * this.scoreMult;
+            // Projectile Motion
+            for (let bullet of my.sprite.bullet){
+                bullet.y -= this.shotSpeed;
+                if (bullet.y < -(bullet.displayHeight/2)){
+                    bullet.visible = false;
+                }
             }
-            else if (this.handValue <= 21){
-                //gain score = handValue*100*hits
-                this.score += this.handValue * 100 * this.scoreMult;
+            for (let bullet of my.sprite.enemyBullet){
+                bullet.y += this.shotSpeed;
+                if (bullet.y > (bullet.displayHeight/2)+600){
+                    bullet.visible = false;
+                }
             }
-            this.scoreMult = 1;
-            my.sprite.player.resetHand();
-            return;
-        }
-        */
 
-        // Player Update
-        my.sprite.player.update();
+            my.sprite.player.update();
+            for (let card of this.activeCards.getChildren()){
+                card.update();
+            }
+        }
+        // Button Interactions
+        // Only onscreen while game is paused, so can't be in the unpaused code.
+        this.buttonYes.on('pointerdown', () => {
+            this.buttonYes.setPosition(-100, -100);
+            this.buttonNo.setPosition(-100, -100);
+            this.init_game("continue");
+        });
+        this.buttonNo.on('pointerdown', () => {
+            this.buttonYes.setPosition(-100, -100);
+            this.buttonNo.setPosition(-100,-100);
+            this.gameOver();
+        });
+        this.buttonRestart.on('pointerdown', () => {
+            this.buttonRestart.setPosition(-100, -100);
+            this.init_game("GameOver");
+        });
     }
 
-    // Function for creating the deck
-    createDeck () {
-        this.suits = ["Spades", "Hearts", "Clubs", "Diamonds"];
-        this.values = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-        this.deck = [];
-        this.deck.x = 0;
-        this.deck.y = 0;
-        this.incrementer = 0;
-        this.mult = 36;
-        this.multY = 48;
-        for (let suit of this.suits){
-            for (let value of this.values){
-                this.texture = suit + value;
+    init_game (state){
+        let my = this.my;
+
+        // Clear Variables
+        if (state == "Start" || state == "GameOver"){
+            this.score = 200;
+        }
+        this.cooldown = 0;  // Enemy ticker
+        this.bulletCooldown = 0;  // Player Shots
+        this.scoreMult = 1; // Score Multiplier
+        this.activeBullets = 0; //count of active enemy shots
+
+        // Text Displays
+        this.gameOverText.visible = false;
+        this.continueText.visible = false;
+        this.yesText.visible = false;
+        this.noText.visible = false;
+        this.restartText.visible = false;
+        this.yourScoreText.visible = false;
+        this.scoreTrackerText.setText("Score: "+this.score);
+        this.multTrackerText.setText("Mult: x"+this.scoreMult);
+        
+        // Reset Bullets
+        for (let i = 0; i < this.maxBullets; i++){
+            my.sprite.bullet[i].x = -100;
+            my.sprite.bullet[i].y = -100;
+            my.sprite.bullet[i].visible = false;
+        }
+        for (let i = 0; i < this.maxEnemyBullets; i++){
+            my.sprite.enemyBullet[i].x = -100;
+            my.sprite.enemyBullet[i].y = -100;
+            my.sprite.enemyBullet[i].visible = false;
+        }
+
+        // Spawn Wave - BROKEN
+        this.deck = this.add.group();
+        let suits = ["Spades", "Hearts", "Clubs", "Diamonds"];
+        let values = ["A", 2, 3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K"];
+        let incrementer = 0;
+        for (let suit of suits){
+            for (let value of values){
+                let texture = suit+value;
                 if (value == "A"){
                     value = 11;
                 }
-                if (value == "J" || value == "Q" || value == "K"){
+                else if (value == "J" || value == "Q" || value == "K"){
                     value = 10;
                 }
-                my.sprite.card = new Card (this, this.deck.x + (this.mult * this.incrementer % 13), this.deck.y + (this.multY * this.incrementer / 13), this.texture, value, null, config);
-                this.incrementer += 1;
-                my.sprite.card.setScale(0.25);
-                this.deck.push(my.sprite.card);
+                let newX = 160+(40*(incrementer%13));
+                let newY = 50+(50*(Math.floor(incrementer/13)));
+                console.log(newX + ", " + newY + ", " + texture + ", " + value);
+                my.sprite.card = new Card (this, newX, newY, texture, 0, value);
+                console.log(my.sprite.card.texture);
+                this.deck.add(my.sprite.card);
+                incrementer++;
             }
         }
-        this.incrementer = 0;
-        this.deck = this.shuffleDeck(this.deck);
-        return this.deck;
+        this.deck.scaleXY(-0.75, -0.75);
+        this.deck.shuffle();
+        this.activeCards = this.add.group();
+
+        // Spawn Character
+        my.sprite.player = new Player(this, game.config.width/2, game.config.height - 100, "player", null, this.aKey, this.dKey, this.moveSpeed);
+        my.sprite.player.setScale(2.00);
+        my.sprite.lifeCounter = this.add.group();
+        for (let i = 0; i < my.sprite.player.lives; i++){
+            let lifeChip = this.add.sprite(100+(i*50), 550, "life");
+            my.sprite.lifeCounter.add(lifeChip);
+        }
+        my.sprite.lifeCounter.scaleXY(-0.5, -0.5);
+        this.pause = false;
     }
 
-    // Function for shuffling the deck
-    shuffleDeck(deck){
-        for (let i = 0; i < deck.length; i++){
-            let shuffle = Math.floor(Math.random()*(deck.length));
-            [deck[i].x, deck[shuffle].x] = [deck[shuffle].x, deck[i].x];
-            [deck[i].y, deck[shuffle].y] = [deck[shuffle].y, deck[i].y];
+    // Helper for getting the value of the deck
+    deckSum(){
+        let total = 0;
+        for (let card of this.deck.getChildren()){
+            total += card.value;
         }
-        return deck;
+        return total;
     }
 
     // Collision check function
@@ -364,20 +464,78 @@ class Blackjack extends Phaser.Scene {
         return true;
     }
 
-    // Function for counting value of remaining deck
-    deckSum (deck){
-        this.totalValue = 0;
-        for (card in deck){
-            this.totalValue += card.value;
-        }
-        return this.totalValue;
-    }
-
-    endLevel(){
-        this.scene.restart();
-    }
-
     gameOver(){
-        this.scene.restart();
+        this.gameOverText.visible = true;
+        this.yourScoreText.updateText();
+        this.yourScoreText.visible = true;
+        this.restartText.visible = true;
+        this.buttonRestart.setPosition(300, 500);
+        this.buttonRestart.setInteractive();
+    }
+
+    makeActive(card) {
+        card.active = true;
+
+        // Snapshot coords for return
+        card.tempX = card.x;
+        card.tempY = card.y;
+
+        // Determine flight path
+        if (card.value <= 5){
+            if (card.x > 400){
+                card.points = [
+                    card.x, card.y,
+                    card.x - 150, 250,
+                    400, 460,
+                    400, 700
+                ];
+            }
+            else {
+                card.points = [
+                    card.x, card.y,
+                    card.x + 150, 250,
+                    400, 460,
+                    400, 700
+                ];
+            }
+        }
+        else if (card.value <= 9){
+            card.points = [
+                card.x, card.y,
+                card.x + 120, 75,
+                card.x + 120, 150,
+                card.x, 225,
+                card.x - 120, 300,
+                card.x - 120, 375,
+                card.x, 450,
+                card.x + 120, 525,
+                card.x + 120, 700
+            ];
+        }
+        else {
+            if (card.x > 400){
+                card.points = [
+                    card.x, card.y,
+                    card.x - 150, 100,
+                    card.x, 250,
+                    750, 550,
+                    750, 700
+                ];
+            }
+            else {
+                card.points = [
+                    card.x, card.y,
+                    card.x + 150, 100,
+                    card.x, 250,
+                    150, 550,
+                    150, 700
+                ];
+            }
+        }
+        this.curve = new Phaser.Curves.Spline(card.points);
+
+        // Follow path
+        let movingCard = this.add.follower(this.curve, 10, 10, card);
+        movingCard.startFollow(this.config);
     }
 }

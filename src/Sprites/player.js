@@ -30,28 +30,29 @@ class Player extends Phaser.GameObjects.Sprite {
     // Helper function for getting value of hand
     checkHand () {
         this.score = 0;
-        for (card in this.hand){
-            this.score += card.value;
+        for (let i = 0; i < this.hand.length; i++){
+            this.score += this.hand[i].value;
+        }
+        if (this.score > 21){
+            // In blackjack, Aces can be either 11 or 1
+            let aces = this.checkAces();
+            while (this.score > 21){
+                if (aces > 0){
+                    aces--;
+                    this.score -= 10;
+                }
+                else{
+                    break;
+                }
+            }
         }
         return this.score;
     }
 
     // Helper function for adding cards to hand
+    // DO NOT USE ON NON-CARD OBJECTS
     addCard (card) {
         this.hand.push(card);
-        return;
-    }
-
-    // Function for converting cards to score
-    playHand (){
-        this.handValue = this.checkHand();
-        if (handValue < 16){
-            //lose score = (16 - handValue)*100*hits
-        }
-        else if (handValue <= 21){
-            //gain score = handValue*100*hits
-        }
-        this.resetHand();
         return;
     }
 
@@ -59,5 +60,16 @@ class Player extends Phaser.GameObjects.Sprite {
     resetHand(){
         this.hand = [];
         return;
+    }
+
+    // Helper Function for dealing with Aces
+    checkAces(){
+        let aces = 0;
+        for (let i = 0; i < this.hand.length; i++){
+            if (this.hand[i].value == 11){
+                aces++;
+            }
+        }
+        return aces;
     }
 }
